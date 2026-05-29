@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -u
+
+VERBOSE=0
+NEBULA_IP="192.168.100.8"
+TEST_URL="https://google.com"
+
+GREEN='\033[1;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+usage() {
+  echo "Usage: $0 [-v]"
+}
+
+while getopts ":vh" opt; do
+  case "$opt" in
+    v) VERBOSE=1 ;;
+    h) usage; exit 0 ;;
+    \?) usage >&2; exit 1 ;;
+  esac
+done
+
+section() {
+  [ "$VERBOSE" -eq 1 ] && printf '\n==== %s ====\n' "$1"
+}
+
+show() {
+  [ "$VERBOSE" -eq 1 ] && printf '%s\n' "$1"
+}
+
+nebula_test() {
+  if ping -c 3 -W 1000 "$NEBULA_IP" >/tmp/nebula_ping.out 2>&1; then
+    if [ "$VERBOSE" -eq 1 ]; then
+      section "Nebula route test"
+      cat /tmp/nebula_ping.out
+    fi
+    #echo "Nebula connect: successful"
+    printf "Nebula connect: ${GREEN}successful${NC}\n"
+	return 0
+  else
+    if [ "$VERBOSE" -eq 1 ]; then
+      section "Nebula route test"
+      cat /tmp/nebula_ping.out
+    fi
+    #echo "Nebula connect: failed"
+	printf "Nebula connect: ${RED}failed${NC}\n"
+    return 1
+  fi
+}
+
+clash_test() {
+  if [ "$VERBOSE" -eq 1 ]; then
+    section "Clash Mi TUN test"
+    curl -v --max-time 10 --connect-timeout 5 "$TEST_URL" 2>&1
+    rc=$?
+  else
+    curl -sS --max-time 15 --connect-timeout 10 "$TEST_URL" >/dev/null 2>&1
+    rc=$?
+  fi
+
+  if [ $rc -eq 0 ]; then
+    #echo "Clash Mi TUN: successful"
+	printf "Clash Mi TUN: ${GREEN}successful${NC}\n"
+    return 0
+  else
+    #echo "Clash Mi TUN: failed"
+	printf "Clash Mi TUN: ${RED}failed${NC}\n"
+    return 1
+  fi
+}
+
+nebula_test
+nebula_rc=$?
+
+clash_test
+clash_rc=$?
+
+if [ $nebula_rc -eq 0 ] && [ $clash_rc -eq 0 ]; then
+  exit 0
+else
+  exit 1
+fi
